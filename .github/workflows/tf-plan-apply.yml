@@ -29,7 +29,6 @@ jobs:
       ARM_SKIP_PROVIDER_REGISTRATION: true
     outputs:
       tfplanExitCode: ${{ steps.tf-plan.outputs.exitcode }}
-      tfplanOutcome: ${{ steps.tf-plan.outputs.outcome }}
 
     steps:
     # Checkout the repository to the GitHub Actions runner
@@ -39,6 +38,8 @@ jobs:
     # Install the latest version of the Terraform CLI
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_wrapper: false
 
     # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
     - name: Terraform Init
@@ -47,29 +48,24 @@ jobs:
     # Checks that all Terraform configuration files adhere to a canonical format
     # Will fail the build if not
     - name: Terraform Format
-      id: fmt
       run: terraform fmt -check
 
-    # # Generates an execution plan for Terraform
-    # # An exit code of 0 indicated no changes, 1 a terraform failure, 2 there are pending changes.
-    # - name: Terraform Plan
-    #   id: tf-plan
-    #   run: |
-    #     export exitcode=0
-    #     terraform plan -detailed-exitcode -no-color -out=tfplan || export exitcode=$?
-
-    #     echo "exitcode=$exitcode" >> $GITHUB_OUTPUT
-
-    #     if [ $exitcode -eq 1 ]; then
-    #       echo Terraform Plan Failed!
-    #       exit 1
-    #     else
-    #       exit 0
-    #     fi
-
+    # Generates an execution plan for Terraform
+    # An exit code of 0 indicated no changes, 1 a terraform failure, 2 there are pending changes.
     - name: Terraform Plan
       id: tf-plan
-      run: terraform plan -input=false -no-color -out=tfplan -detailed-exitcode
+      run: |
+        export exitcode=0
+        terraform plan -detailed-exitcode -no-color -out tfplan || export exitcode=$?
+
+        echo "exitcode=$exitcode" >> $GITHUB_OUTPUT
+
+        if [ $exitcode -eq 1 ]; then
+          echo Terraform Plan Failed!
+          exit 1
+        else
+          exit 0
+        fi
 
     # Save plan to artifacts
     - name: Publish Terraform Plan
@@ -78,115 +74,46 @@ jobs:
         name: tfplan
         path: tfplan
 
-    # # Create string output of Terraform Plan
-    # - name: Create String Output
-    #   id: tf-plan-string
-    #   run: |
-    #     TERRAFORM_PLAN=$(terraform show -no-color tfplan)
+    # Create string output of Terraform Plan
+    - name: Create String Output
+      id: tf-plan-string
+      run: |
+        TERRAFORM_PLAN=$(terraform show -no-color tfplan)
 
-    #     delimiter="$(openssl rand -hex 8)"
-    #     echo "summary<<${delimiter}" >> $GITHUB_OUTPUT
-    #     echo "## Terraform Plan Output" >> $GITHUB_OUTPUT
-    #     echo "<details><summary>Click to expand</summary>" >> $GITHUB_OUTPUT
-    #     echo "" >> $GITHUB_OUTPUT
-    #     echo '```terraform' >> $GITHUB_OUTPUT
-    #     echo "$TERRAFORM_PLAN" >> $GITHUB_OUTPUT
-    #     echo '```' >> $GITHUB_OUTPUT
-    #     echo "</details>" >> $GITHUB_OUTPUT
-    #     echo "${delimiter}" >> $GITHUB_OUTPUT
+        delimiter="$(openssl rand -hex 8)"
+        echo "summary<<${delimiter}" >> $GITHUB_OUTPUT
+        echo "## Terraform Plan Output" >> $GITHUB_OUTPUT
+        echo "<details><summary>Click to expand</summary>" >> $GITHUB_OUTPUT
+        echo "" >> $GITHUB_OUTPUT
+        echo '```terraform' >> $GITHUB_OUTPUT
+        echo "$TERRAFORM_PLAN" >> $GITHUB_OUTPUT
+        echo '```' >> $GITHUB_OUTPUT
+        echo "</details>" >> $GITHUB_OUTPUT
+        echo "${delimiter}" >> $GITHUB_OUTPUT
 
     # Publish Terraform Plan as task summary
-    # - name: Publish Terraform Plan to Task Summary
-    #   env:
-    #     SUMMARY: ${{ steps.tf-plan-string.outputs.summary }}
-    #   run: |
-    #     echo "$SUMMARY" >> $GITHUB_STEP_SUMMARY
-
-    # # If this is a PR post the changes
-    # - name: Push Terraform Output to PR
-    #   if: github.ref != 'refs/heads/main'
-    #   uses: actions/github-script@v7
-    #   env:
-    #     SUMMARY: "${{ steps.tf-plan-string.outputs.summary }}"
-    #   with:
-    #       github-token: ${{ secrets.GITHUB_TOKEN }}
-    #       script: |
-    #         const body = `${process.env.SUMMARY}`;
-    #         github.rest.issues.createComment({
-    #             issue_number: context.issue.number,
-    #             owner: context.repo.owner,
-    #             repo: context.repo.repo,
-    #             body: body
-    #         })
-
-    - name: PR Comment
-      id: comment
-      uses: actions/github-script@v7
-      if: github.event_name == 'pull_request' || failure() && github.event_name == 'pull_request'
+    - name: Publish Terraform Plan to Task Summary
       env:
-        PLAN: "terraform\n${{ steps.tf-plan.outputs.stdout }}"
+        SUMMARY: ${{ steps.tf-plan-string.outputs.summary }}
+      run: |
+        echo "$SUMMARY" >> $GITHUB_STEP_SUMMARY
+
+    # If this is a PR post the changes
+    - name: Push Terraform Output to PR
+      if: github.ref != 'refs/heads/main'
+      uses: actions/github-script@v7
+      env:
+        SUMMARY: "${{ steps.tf-plan-string.outputs.summary }}"
       with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        script: |
-          // 1. Retrieve existing bot comments for the PR
-          const { data: comments } = await github.rest.issues.listComments({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            issue_number: context.issue.number,
-          })
-          const botComment = comments.find(comment => {
-            return comment.user.type === 'Bot' && comment.body.includes('Terraform Format and Style')
-          })
-
-          // 2. Prepare format of the comment
-          const output = `
-          #### Terraform Format and Style 🖌\`${{ steps.fmt.outcome }}\`
-          <details><summary>Format Output</summary>
-
-          \`\`\`\n
-          ${{ steps.fmt.outputs.stdout }}
-          \`\`\`
-
-          </details>
-
-          #### Terraform Initialization ⚙️\`${{ steps.init.outcome }}\`
-          #### Terraform Validation 🤖\`${{ steps.validate.outcome }}\`
-          <details><summary>Validation Output</summary>
-
-          \`\`\`\n
-          ${{ steps.validate.outputs.stdout }}
-          \`\`\`
-
-          </details>
-
-          #### Terraform Plan 📖\`${{ steps.tf-plan.outcome }}\`
-
-          <details><summary>Show Plan</summary>
-
-          \`\`\`\n
-          ${process.env.PLAN}
-          \`\`\`
-
-          </details>
-
-          *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`, Workflow: \`${{ github.workflow }}\`*`;
-
-          // 3. If we have a comment, update it, otherwise create a new one
-          if (botComment) {
-            github.rest.issues.updateComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              comment_id: botComment.id,
-              body: output
-            })
-          } else {
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const body = `${process.env.SUMMARY}`;
             github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: output
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
             })
-          }
 
   terraform-apply:
     name: 'Terraform Apply'
