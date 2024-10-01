@@ -3,4 +3,9 @@ resource "azurerm_resource_group" "example" {
   location = var.location
 }
 
+resource "azurerm_resource_group" "example2" {
+  name     = "rg-test-2"
+  location = var.location
+}
+
 #
