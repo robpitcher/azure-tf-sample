@@ -21,6 +21,7 @@ env:
   ARM_TENANT_ID: "${{ secrets.AZURE_TENANT_ID }}"
   RESOURCE_GROUP: rg-tf-samples
   STORAGE_ACCOUNT_NAME: fdsafewafg34
+  SLEEP_TIME: 30
 
 jobs:
   terraform-plan:
@@ -59,7 +60,7 @@ jobs:
           --ip-address ${{ env.runner_ip }}
 
     - name: Wait for IP whitelisting to propagate
-      run: sleep 30  # 30-second delay
+      run: sleep ${{ env.SLEEP_TIME }}
 
     # Install the latest version of the Terraform CLI
     - name: Setup Terraform
@@ -142,6 +143,14 @@ jobs:
     #             repo: context.repo.repo,
     #             body: body
     #         })
+
+    - name: Remove GitHub-hosted runner IP from storage account firewall
+      if: always()  # Ensures this runs even if previous steps fail
+      run: |
+        az storage account network-rule remove \
+          --resource-group ${{ env.RESOURCE_GROUP }} \
+          --account-name ${{ env.STORAGE_ACCOUNT_NAME }} \
+          --ip-address ${{ env.runner_ip }}
 
   terraform-apply:
     name: 'Terraform Apply'
