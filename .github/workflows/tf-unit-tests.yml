@@ -13,10 +13,6 @@ jobs:
     name: 'Terraform Unit Tests'
     runs-on: ubuntu-latest
 
-    env:
-      RESOURCE_GROUP: rg-tf-samples
-      STORAGE_ACCOUNT_NAME: fdsafewafg34
-
     steps:
     # Checkout the repository to the GitHub Actions runner
     - name: Checkout
