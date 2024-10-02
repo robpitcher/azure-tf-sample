@@ -19,9 +19,7 @@ env:
   ARM_CLIENT_ID: "${{ secrets.AZURE_CLIENT_ID }}"
   ARM_SUBSCRIPTION_ID: "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
   ARM_TENANT_ID: "${{ secrets.AZURE_TENANT_ID }}"
-  RESOURCE_GROUP: rg-tf-samples
-  STORAGE_ACCOUNT_NAME: fdsafewafg34
-  SLEEP_TIME: 30
+  SLEEP_TIME: 60
 
 jobs:
   terraform-plan:
@@ -55,8 +53,8 @@ jobs:
     - name: Whitelist GitHub-hosted runner IP on storage account firewall
       run: |
         az storage account network-rule add \
-          --resource-group ${{ env.RESOURCE_GROUP }} \
-          --account-name ${{ env.STORAGE_ACCOUNT_NAME }} \
+          --resource-group ${{ vars.RESOURCE_GROUP }} \
+          --account-name ${{ vars.STORAGE_ACCOUNT_NAME }} \
           --ip-address ${{ env.runner_ip }}
 
     - name: Wait for IP whitelisting to propagate
@@ -148,8 +146,8 @@ jobs:
       if: always()  # Ensures this runs even if previous steps fail
       run: |
         az storage account network-rule remove \
-          --resource-group ${{ env.RESOURCE_GROUP }} \
-          --account-name ${{ env.STORAGE_ACCOUNT_NAME }} \
+          --resource-group ${{ vars.RESOURCE_GROUP }} \
+          --account-name ${{ vars.STORAGE_ACCOUNT_NAME }} \
           --ip-address ${{ env.runner_ip }}
 
   terraform-apply:
@@ -182,8 +180,8 @@ jobs:
     - name: Whitelist GitHub-hosted runner IP on storage account firewall
       run: |
         az storage account network-rule add \
-          --resource-group ${{ env.RESOURCE_GROUP }} \
-          --account-name ${{ env.STORAGE_ACCOUNT_NAME }} \
+          --resource-group ${{ vars.RESOURCE_GROUP }} \
+          --account-name ${{ vars.STORAGE_ACCOUNT_NAME }} \
           --ip-address ${{ env.runner_ip }}
 
     - name: Wait for IP whitelisting to propagate
@@ -211,6 +209,6 @@ jobs:
       if: always()  # Ensures this runs even if previous steps fail
       run: |
         az storage account network-rule remove \
-          --resource-group ${{ env.RESOURCE_GROUP }} \
-          --account-name ${{ env.STORAGE_ACCOUNT_NAME }} \
+          --resource-group ${{ vars.RESOURCE_GROUP }} \
+          --account-name ${{ vars.STORAGE_ACCOUNT_NAME }} \
           --ip-address ${{ env.runner_ip }}
