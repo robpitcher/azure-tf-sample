@@ -13,10 +13,27 @@ jobs:
     name: 'Terraform Unit Tests'
     runs-on: ubuntu-latest
 
+    env:
+      RESOURCE_GROUP: rg-tf-samples
+      STORAGE_ACCOUNT_NAME: fdsafewafg34
+
     steps:
     # Checkout the repository to the GitHub Actions runner
     - name: Checkout
       uses: actions/checkout@v4
+
+    - name: Get GitHub-hosted runner public IP
+      id: get_ip
+      run: |
+        echo "Public IP: $(curl -s ifconfig.me)"
+        echo "runner_ip=$(curl -s ifconfig.me)" >> $GITHUB_ENV
+
+    - name: Whitelist GitHub-hosted runner IP on storage account firewall
+      run: |
+        az storage account network-rule add \
+          --resource-group ${{ env.RESOURCE_GROUP }} \
+          --account-name ${{ env.STORAGE_ACCOUNT_NAME }} \
+          --ip-address ${{ env.runner_ip }}
 
     # Install the latest version of Terraform CLI and configure the Terraform CLI configuration file with a Terraform Cloud user API token
     - name: Setup Terraform
@@ -48,3 +65,11 @@ jobs:
       with:
         sarif_file: results.sarif
         category: checkov
+
+    # - name: Remove GitHub-hosted runner IP from storage account firewall
+    #   if: always()  # Ensures this runs even if previous steps fail
+    #   run: |
+    #     az storage account network-rule remove \
+    #       --resource-group ${{ env.RESOURCE_GROUP }} \
+    #       --account-name ${{ env.STORAGE_ACCOUNT_NAME }} \
+    #       --ip-address ${{ env.runner_ip }}
