@@ -56,7 +56,7 @@ jobs:
     - name: Whitelist GitHub-hosted runner IP on storage account firewall
       run: |
         az storage account network-rule add \
-          --resource-group ${{ vars.RESOURCE_GROUP }} \
+          --resource-group ${{ vars.RESOURCE_GROUP_NAME }} \
           --account-name ${{ vars.STORAGE_ACCOUNT_NAME }} \
           --ip-address ${{ env.runner_ip }}
 
