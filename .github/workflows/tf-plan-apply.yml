@@ -33,6 +33,7 @@ jobs:
     outputs:
       tfplanExitCode: ${{ steps.tf-plan.outputs.exitcode }}
     environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'nonprod' }}
+    # environment: ${{ github.base_ref == 'main' && 'production' || 'nonprod' }} Might need to switch to this
 
     steps:
     # Checkout the repository to the GitHub Actions runner
@@ -159,7 +160,7 @@ jobs:
 
   terraform-apply:
     name: 'Terraform Apply'
-    if: needs.terraform-plan.outputs.tfplanExitCode == 2
+    if: needs.terraform-plan.outputs.tfplanExitCode == 2 && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
     runs-on: ubuntu-latest
     environment: ${{ github.ref == 'refs/heads/main' && 'production' || (github.ref == 'refs/heads/dev' && 'nonprod') }}
     needs: [terraform-plan]
