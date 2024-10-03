@@ -32,8 +32,7 @@ jobs:
       ARM_SKIP_PROVIDER_REGISTRATION: true
     outputs:
       tfplanExitCode: ${{ steps.tf-plan.outputs.exitcode }}
-    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'nonprod' }}
-    # environment: ${{ github.base_ref == 'main' && 'production' || 'nonprod' }} Might need to switch to this
+    environment: ${{ github.base_ref == 'main' && 'production' || 'nonprod' }}
 
     steps:
     # Checkout the repository to the GitHub Actions runner
