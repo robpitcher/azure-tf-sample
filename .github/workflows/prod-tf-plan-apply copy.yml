@@ -15,7 +15,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  call-terraform-workflow:
+  Prod:
     uses: ./.github/workflows/template-tf-plan-apply.yml
     with:
       environment: 'production'
