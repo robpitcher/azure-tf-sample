@@ -1,14 +1,11 @@
-name: 'Terraform Plan/Apply'
+name: 'Terraform Workflow'
 
 on:
-  push:
-    branches:
-    - main
-    - dev
-  pull_request:
-    branches:
-    - main
-    - dev
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
 
 #Special permissions required for OIDC authentication
 permissions:
@@ -32,7 +29,6 @@ jobs:
       ARM_SKIP_PROVIDER_REGISTRATION: true
     outputs:
       tfplanExitCode: ${{ steps.tf-plan.outputs.exitcode }}
-    environment: ${{ github.base_ref == 'main' && 'production' || 'nonprod' }}
 
     steps:
     # Checkout the repository to the GitHub Actions runner
@@ -159,9 +155,9 @@ jobs:
 
   terraform-apply:
     name: 'Terraform Apply'
-    if: needs.terraform-plan.outputs.tfplanExitCode == 2 && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+    if: needs.terraform-plan.outputs.tfplanExitCode
     runs-on: ubuntu-latest
-    environment: ${{ github.ref == 'refs/heads/main' && 'production' || (github.ref == 'refs/heads/dev' && 'nonprod') }}
+    environment: ${{ inputs.environment }}
     needs: [terraform-plan]
 
     steps:
