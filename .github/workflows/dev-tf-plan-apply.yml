@@ -19,6 +19,7 @@ jobs:
     uses: ./.github/workflows/template-tf-plan-apply.yml
     with:
       environment: 'nonprod'
+      tf_state_key: 'nonprod.tfstate'
     secrets:
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}

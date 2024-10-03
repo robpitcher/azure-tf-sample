@@ -6,6 +6,9 @@ on:
       environment:
         required: true
         type: string
+      tf_state_key:
+        required: true
+        type: string
     secrets:
       AZURE_CLIENT_ID:
         required: true
@@ -78,7 +81,7 @@ jobs:
         -backend-config="storage_account_name=${{ vars.STORAGE_ACCOUNT_NAME }}"
         -backend-config="resource_group_name=${{ vars.RESOURCE_GROUP_NAME }}"
         -backend-config="container_name=${{ vars.CONTAINER_NAME }}"
-        -backend-config="${{ vars.KEY }}"
+        -backend-config="key=${{ inputs.tf_state_key }}"
 
     # Checks that all Terraform configuration files adhere to a canonical format
     # Will fail the build if not
