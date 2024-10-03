@@ -1,15 +1,15 @@
-name: 'Nonprod Terraform Workflow'
+name: 'Prod Terraform Workflow'
 
 on:
   push:
     branches:
-      - dev
+      - main
   pull_request:
     branches:
-      - dev
+      - main
 
 jobs:
   call-terraform-workflow:
     uses: ./.github/workflows/template-tf-plan-apply.yml
     with:
-      environment: 'nonprod'
+      environment: 'production'
