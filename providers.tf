@@ -2,7 +2,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 3.107"
+      version = "4.3.0"
     }
   }
 
@@ -14,6 +14,9 @@ terraform {
   #   key                  = "sample.tfstate"
   #   use_oidc             = true
   # }
+  backend "azurerm" {
+    use_oidc = true
+  }
 }
 
 provider "azurerm" {
