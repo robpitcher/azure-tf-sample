@@ -1,0 +1,21 @@
+name: 'Prod Terraform Workflow'
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+# Special permissions required for OIDC authentication
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  call-terraform-workflow:
+    uses: ./.github/workflows/template-tf-plan-apply.yml
+    with:
+      environment: 'production'

@@ -1,14 +1,21 @@
-name: 'Terraform Plan/Apply'
+name: 'Terraform Workflow'
 
 on:
-  push:
-    branches:
-    - main
-    - dev
-  pull_request:
-    branches:
-    - main
-    - dev
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      tf_state_key:
+        required: true
+        type: string
+    secrets:
+      AZURE_CLIENT_ID:
+        required: true
+      AZURE_TENANT_ID:
+        required: true
+      AZURE_SUBSCRIPTION_ID:
+        required: true
 
 #Special permissions required for OIDC authentication
 permissions:
@@ -32,7 +39,6 @@ jobs:
       ARM_SKIP_PROVIDER_REGISTRATION: true
     outputs:
       tfplanExitCode: ${{ steps.tf-plan.outputs.exitcode }}
-    environment: ${{ github.base_ref == 'main' && 'production' || 'nonprod' }}
 
     steps:
     # Checkout the repository to the GitHub Actions runner
@@ -75,7 +81,7 @@ jobs:
         -backend-config="storage_account_name=${{ vars.STORAGE_ACCOUNT_NAME }}"
         -backend-config="resource_group_name=${{ vars.RESOURCE_GROUP_NAME }}"
         -backend-config="container_name=${{ vars.CONTAINER_NAME }}"
-        -backend-config="${{ vars.KEY }}"
+        -backend-config="key=${{ inputs.tf_state_key }}"
 
     # Checks that all Terraform configuration files adhere to a canonical format
     # Will fail the build if not
@@ -88,7 +94,7 @@ jobs:
       id: tf-plan
       run: |
         export exitcode=0
-        terraform plan -detailed-exitcode -no-color -out tfplan -var "env_name=${{ vars.ENV_NAME }}" || export exitcode=$?
+        terraform plan -detailed-exitcode -no-color -out tfplan -var "env_name=${{ inputs.environment }}" || export exitcode=$?
 
         echo "exitcode=$exitcode" >> $GITHUB_OUTPUT
 
@@ -161,7 +167,7 @@ jobs:
     name: 'Terraform Apply'
     if: needs.terraform-plan.outputs.tfplanExitCode == 2 && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
     runs-on: ubuntu-latest
-    environment: ${{ github.ref == 'refs/heads/main' && 'production' || (github.ref == 'refs/heads/dev' && 'nonprod') }}
+    environment: ${{ inputs.environment }}
     needs: [terraform-plan]
 
     steps:
