@@ -14,7 +14,7 @@ terraform {
   #   key                  = "sample.tfstate"
   #   use_oidc             = true
   # }
-  backend "local" {}
+  backend "azurerm" {}
 }
 
 provider "azurerm" {
