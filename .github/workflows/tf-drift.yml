@@ -16,6 +16,8 @@ env:
   ARM_CLIENT_ID: "${{ secrets.AZURE_CLIENT_ID }}"
   ARM_SUBSCRIPTION_ID: "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
   ARM_TENANT_ID: "${{ secrets.AZURE_TENANT_ID }}"
+  ENVIRONMENT: 'production'
+  TF_STATE_KEY: 'production.tfstate'
 
 jobs:
   terraform-plan:
@@ -68,7 +70,7 @@ jobs:
         -backend-config="storage_account_name=${{ vars.STORAGE_ACCOUNT_NAME }}"
         -backend-config="resource_group_name=${{ vars.RESOURCE_GROUP_NAME }}"
         -backend-config="container_name=${{ vars.CONTAINER_NAME }}"
-        -backend-config="key=${{ inputs.tf_state_key }}"
+        -backend-config="key=${{ env.TF_STATE_KEY }}"
 
     # Generates an execution plan for Terraform
     # An exit code of 0 indicated no changes, 1 a terraform failure, 2 there are pending changes.
@@ -76,7 +78,7 @@ jobs:
       id: tf-plan
       run: |
         export exitcode=0
-        terraform plan -detailed-exitcode -no-color -out tfplan || export exitcode=$?
+        terraform plan -detailed-exitcode -no-color -out tfplan -var "env_name=${{ env.ENVIRONMENT }}" || export exitcode=$?
 
         echo "exitcode=$exitcode" >> $GITHUB_OUTPUT
 
