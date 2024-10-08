@@ -1,14 +1,21 @@
-name: 'Terraform Plan/Apply'
+name: 'Terraform Plan/Apply Workflow'
 
 on:
-  push:
-    branches:
-    - main
-    - dev
-  pull_request:
-    branches:
-    - main
-    - dev
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      tf_state_key:
+        required: true
+        type: string
+    secrets:
+      AZURE_CLIENT_ID:
+        required: true
+      AZURE_TENANT_ID:
+        required: true
+      AZURE_SUBSCRIPTION_ID:
+        required: true
 
 #Special permissions required for OIDC authentication
 permissions:
@@ -32,7 +39,6 @@ jobs:
       ARM_SKIP_PROVIDER_REGISTRATION: true
     outputs:
       tfplanExitCode: ${{ steps.tf-plan.outputs.exitcode }}
-    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'nonprod' }}
 
     steps:
     # Checkout the repository to the GitHub Actions runner
@@ -75,7 +81,7 @@ jobs:
         -backend-config="storage_account_name=${{ vars.STORAGE_ACCOUNT_NAME }}"
         -backend-config="resource_group_name=${{ vars.RESOURCE_GROUP_NAME }}"
         -backend-config="container_name=${{ vars.CONTAINER_NAME }}"
-        -backend-config="${{ vars.KEY }}"
+        -backend-config="key=${{ inputs.tf_state_key }}"
 
     # Checks that all Terraform configuration files adhere to a canonical format
     # Will fail the build if not
@@ -88,7 +94,7 @@ jobs:
       id: tf-plan
       run: |
         export exitcode=0
-        terraform plan -detailed-exitcode -no-color -out tfplan -var "env_name=${{ vars.ENV_NAME }}" || export exitcode=$?
+        terraform plan -detailed-exitcode -no-color -out tfplan -var "env_name=${{ inputs.environment }}" || export exitcode=$?
 
         echo "exitcode=$exitcode" >> $GITHUB_OUTPUT
 
@@ -123,31 +129,31 @@ jobs:
         echo "</details>" >> $GITHUB_OUTPUT
         echo "${delimiter}" >> $GITHUB_OUTPUT
 
-    # # Publish Terraform Plan as task summary
-    # - name: Publish Terraform Plan to Task Summary
-    #   continue-on-error: true
-    #   env:
-    #     SUMMARY: ${{ steps.tf-plan-string.outputs.summary }}
-    #   run: |
-    #     echo "$SUMMARY" >> $GITHUB_STEP_SUMMARY
+    # Publish Terraform Plan as task summary
+    - name: Publish Terraform Plan to Task Summary
+      continue-on-error: true
+      env:
+        SUMMARY: ${{ steps.tf-plan-string.outputs.summary }}
+      run: |
+        echo "$SUMMARY" >> $GITHUB_STEP_SUMMARY
 
-    # # If this is a PR post the changes
-    # - name: Push Terraform Output to PR
-    #   continue-on-error: true
-    #   if: github.ref != 'refs/heads/main'
-    #   uses: actions/github-script@v7
-    #   env:
-    #     SUMMARY: "${{ steps.tf-plan-string.outputs.summary }}"
-    #   with:
-    #       github-token: ${{ secrets.GITHUB_TOKEN }}
-    #       script: |
-    #         const body = `${process.env.SUMMARY}`;
-    #         github.rest.issues.createComment({
-    #             issue_number: context.issue.number,
-    #             owner: context.repo.owner,
-    #             repo: context.repo.repo,
-    #             body: body
-    #         })
+    # If this is a PR post the changes
+    - name: Push Terraform Output to PR
+      continue-on-error: true
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      env:
+        SUMMARY: "${{ steps.tf-plan-string.outputs.summary }}"
+      with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const body = `${process.env.SUMMARY}`;
+            github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
+            })
 
     - name: Remove GitHub-hosted runner IP from storage account firewall
       if: always()  # Ensures this runs even if previous steps fail
@@ -159,9 +165,9 @@ jobs:
 
   terraform-apply:
     name: 'Terraform Apply'
-    if: needs.terraform-plan.outputs.tfplanExitCode == 2
+    if: needs.terraform-plan.outputs.tfplanExitCode == 2 && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
     runs-on: ubuntu-latest
-    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'nonprod' }}
+    environment: ${{ inputs.environment }}
     needs: [terraform-plan]
 
     steps:
@@ -201,6 +207,10 @@ jobs:
     # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
     - name: Terraform Init
       run: terraform init
+        -backend-config="storage_account_name=${{ vars.STORAGE_ACCOUNT_NAME }}"
+        -backend-config="resource_group_name=${{ vars.RESOURCE_GROUP_NAME }}"
+        -backend-config="container_name=${{ vars.CONTAINER_NAME }}"
+        -backend-config="key=${{ inputs.tf_state_key }}"
 
     # Download saved plan from artifacts
     - name: Download Terraform Plan
