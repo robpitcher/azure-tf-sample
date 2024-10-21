@@ -18,6 +18,7 @@ env:
   ARM_TENANT_ID: "${{ secrets.AZURE_TENANT_ID }}"
   ENVIRONMENT: 'production'
   TF_STATE_KEY: 'production.tfstate'
+  SLEEP_TIME: 30
 
 jobs:
   terraform-plan:
