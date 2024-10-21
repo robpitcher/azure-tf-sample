@@ -1,9 +1,9 @@
-name: 'Terraform Configuration Drift Detection'
+name: 'Terraform Configuration Drift Detection (Prod)'
 
 on:
-  workflow_dispatch: 
+  workflow_dispatch:
   schedule:
-    - cron: '41 3 * * *' # runs nightly at 3:41 am
+    - cron: '30 14 * * *' # runs daily at 14:30
 
 #Special permissions required for OIDC authentication
 permissions:
@@ -11,11 +11,13 @@ permissions:
   contents: read
   issues: write
 
-#These environment variables are used by the terraform azure provider to setup OIDD authenticate. 
+#These environment variables are used by the terraform azure provider to setup OIDD authenticate.
 env:
   ARM_CLIENT_ID: "${{ secrets.AZURE_CLIENT_ID }}"
   ARM_SUBSCRIPTION_ID: "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
   ARM_TENANT_ID: "${{ secrets.AZURE_TENANT_ID }}"
+  ENVIRONMENT: 'production'
+  TF_STATE_KEY: 'production.tfstate'
 
 jobs:
   terraform-plan:
@@ -32,6 +34,30 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
+    - name: "Authenticate to Azure"
+      id: "azure-login"
+      uses: azure/login@v2
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+    - name: Get GitHub-hosted runner public IP
+      id: get_ip
+      run: |
+        echo "Public IP: $(curl -s ifconfig.me)"
+        echo "runner_ip=$(curl -s ifconfig.me)" >> $GITHUB_ENV
+
+    - name: Whitelist GitHub-hosted runner IP on storage account firewall
+      run: |
+        az storage account network-rule add \
+          --resource-group ${{ vars.RESOURCE_GROUP_NAME }} \
+          --account-name ${{ vars.STORAGE_ACCOUNT_NAME }} \
+          --ip-address ${{ env.runner_ip }}
+
+    - name: Wait for IP whitelisting to propagate
+      run: sleep ${{ env.SLEEP_TIME }}
+
     # Install the latest version of the Terraform CLI
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
@@ -41,6 +67,10 @@ jobs:
     # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
     - name: Terraform Init
       run: terraform init
+        -backend-config="storage_account_name=${{ vars.STORAGE_ACCOUNT_NAME }}"
+        -backend-config="resource_group_name=${{ vars.RESOURCE_GROUP_NAME }}"
+        -backend-config="container_name=${{ vars.CONTAINER_NAME }}"
+        -backend-config="key=${{ env.TF_STATE_KEY }}"
 
     # Generates an execution plan for Terraform
     # An exit code of 0 indicated no changes, 1 a terraform failure, 2 there are pending changes.
@@ -48,30 +78,30 @@ jobs:
       id: tf-plan
       run: |
         export exitcode=0
-        terraform plan -detailed-exitcode -no-color -out tfplan || export exitcode=$?
-        
+        terraform plan -detailed-exitcode -no-color -out tfplan -var "env_name=${{ env.ENVIRONMENT }}" || export exitcode=$?
+
         echo "exitcode=$exitcode" >> $GITHUB_OUTPUT
-        
+
         if [ $exitcode -eq 1 ]; then
           echo Terraform Plan Failed!
           exit 1
-        else 
+        else
           exit 0
         fi
-        
-    # Save plan to artifacts  
+
+    # Save plan to artifacts
     - name: Publish Terraform Plan
       uses: actions/upload-artifact@v4
       with:
         name: tfplan
         path: tfplan
-        
+
     # Create string output of Terraform Plan
     - name: Create String Output
       id: tf-plan-string
       run: |
         TERRAFORM_PLAN=$(terraform show -no-color tfplan)
-        
+
         delimiter="$(openssl rand -hex 8)"
         echo "summary<<${delimiter}" >> $GITHUB_OUTPUT
         echo "## Terraform Plan Output" >> $GITHUB_OUTPUT
@@ -82,7 +112,7 @@ jobs:
         echo '```' >> $GITHUB_OUTPUT
         echo "</details>" >> $GITHUB_OUTPUT
         echo "${delimiter}" >> $GITHUB_OUTPUT
-        
+
     # Publish Terraform Plan as task summary
     - name: Publish Terraform Plan to Task Summary
       env:
@@ -102,7 +132,7 @@ jobs:
             const body = `${process.env.SUMMARY}`;
             const title = 'Terraform Configuration Drift Detected';
             const creator = 'github-actions[bot]'
-          
+
             // Look to see if there is an existing drift issue
             const issues = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
@@ -111,11 +141,11 @@ jobs:
               creator: creator,
               title: title
             })
-              
+
             if( issues.data.length > 0 ) {
               // We assume there shouldn't be more than 1 open issue, since we update any issue we find
               const issue = issues.data[0]
-              
+
               if ( issue.body == body ) {
                 console.log('Drift Detected: Found matching issue with duplicate content')
               } else {
@@ -137,7 +167,7 @@ jobs:
                 body: body
              })
             }
-            
+
     # If changes aren't detected, close any open drift issues
     - name: Publish Drift Report
       if: steps.tf-plan.outputs.exitcode == 0
@@ -147,7 +177,7 @@ jobs:
           script: |
             const title = 'Terraform Configuration Drift Detected';
             const creator = 'github-actions[bot]'
-          
+
             // Look to see if there is an existing drift issue
             const issues = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
@@ -156,19 +186,19 @@ jobs:
               creator: creator,
               title: title
             })
-              
+
             if( issues.data.length > 0 ) {
               const issue = issues.data[0]
-              
+
               github.rest.issues.update({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issue.number,
                 state: 'closed'
               })
-            } 
-             
-    # Mark the workflow as failed if drift detected 
+            }
+
+    # Mark the workflow as failed if drift detected
     - name: Error on Failure
       if: steps.tf-plan.outputs.exitcode == 2
       run: exit 1
