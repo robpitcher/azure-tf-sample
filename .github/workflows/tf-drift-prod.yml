@@ -67,6 +67,7 @@ jobs:
 
     # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
     - name: Terraform Init
+      working-directory: ./src
       run: terraform init
         -backend-config="storage_account_name=${{ vars.STORAGE_ACCOUNT_NAME }}"
         -backend-config="resource_group_name=${{ vars.RESOURCE_GROUP_NAME }}"
@@ -77,6 +78,7 @@ jobs:
     # An exit code of 0 indicated no changes, 1 a terraform failure, 2 there are pending changes.
     - name: Terraform Plan
       id: tf-plan
+      working-directory: ./src
       run: |
         export exitcode=0
         terraform plan -detailed-exitcode -no-color -out tfplan -var "env_name=${{ env.ENVIRONMENT }}" || export exitcode=$?
@@ -95,11 +97,12 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: tfplan
-        path: tfplan
+        path: src/tfplan
 
     # Create string output of Terraform Plan
     - name: Create String Output
       id: tf-plan-string
+      working-directory: ./src
       run: |
         TERRAFORM_PLAN=$(terraform show -no-color tfplan)
 
