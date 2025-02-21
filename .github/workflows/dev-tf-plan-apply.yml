@@ -1,6 +1,7 @@
 name: 'Nonprod Terraform Workflow'
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - dev
