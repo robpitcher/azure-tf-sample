@@ -77,6 +77,7 @@ jobs:
 
     # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
     - name: Terraform Init
+      working-directory: ./src
       run: |
         max_attempts=5
         delay=10
@@ -96,12 +97,14 @@ jobs:
     # Checks that all Terraform configuration files adhere to a canonical format
     # Will fail the build if not
     - name: Terraform Format
+      working-directory: ./src
       run: terraform fmt -check
 
     # Generates an execution plan for Terraform
     # An exit code of 0 indicated no changes, 1 a terraform failure, 2 there are pending changes.
     - name: Terraform Plan
       id: tf-plan
+      working-directory: ./src
       run: |
         export exitcode=0
         terraform plan -detailed-exitcode -no-color -out tfplan -var "env_name=${{ inputs.environment }}" || export exitcode=$?
@@ -120,11 +123,12 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: tfplan
-        path: tfplan
+        path: src/tfplan
 
     # Create string output of Terraform Plan
     - name: Create String Output
       id: tf-plan-string
+      working-directory: ./src
       run: |
         TERRAFORM_PLAN=$(terraform show -no-color tfplan)
 
@@ -216,6 +220,7 @@ jobs:
 
     # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
     - name: Terraform Init
+      working-directory: ./src
       run: |
         max_attempts=5
         delay=10
@@ -237,9 +242,11 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: tfplan
+        path: src
 
     # Terraform Apply
     - name: Terraform Apply
+      working-directory: ./src
       run: terraform apply -auto-approve tfplan
 
     - name: Remove GitHub-hosted runner IP from storage account firewall
