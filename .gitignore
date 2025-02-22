@@ -38,3 +38,4 @@ terraform.rc
 
 *.terraform.lock.hcl*
 *.tfplan
+azurek8s
