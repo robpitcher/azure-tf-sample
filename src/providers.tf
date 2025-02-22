@@ -1,25 +1,26 @@
 terraform {
+  required_version = ">=1.0"
+
   required_providers {
+    azapi = {
+      source  = "azure/azapi"
+      version = "~>1.5"
+    }
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "4.19.0"
+      version = "~>3.0"
     }
-  }
-
-  # Update this block with the location of your terraform state file
-  # backend "azurerm" {
-  #   resource_group_name  = "rg-tf-samples"
-  #   storage_account_name = "fdsafewafg34"
-  #   container_name       = "tfstates"
-  #   key                  = "sample.tfstate"
-  #   use_oidc             = true
-  # }
-  backend "azurerm" {
-    use_oidc = true
+    random = {
+      source  = "hashicorp/random"
+      version = "~>3.0"
+    }
+    time = {
+      source  = "hashicorp/time"
+      version = "0.9.1"
+    }
   }
 }
 
 provider "azurerm" {
   features {}
-  use_oidc = true
 }
