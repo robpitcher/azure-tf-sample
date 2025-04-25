@@ -30,6 +30,9 @@ terraform.rc
 tfplan
 *.tfplan
 
+# Ignore any local backup files
+*.backup
+
 # Ignore .DS_Store files on macOS
 .DS_Store
 
