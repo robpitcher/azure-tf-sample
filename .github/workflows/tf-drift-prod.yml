@@ -2,8 +2,8 @@ name: 'Terraform Configuration Drift Detection (Prod)'
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '30 14 * * *' # runs daily at 14:30
+  # schedule:
+  #   - cron: '30 14 * * *' # runs daily at 14:30
 
 #Special permissions required for OIDC authentication
 permissions:
