@@ -42,3 +42,5 @@ tfplan
 
 # Ignore .env files that might contain credentials
 .env
+
+.local/
